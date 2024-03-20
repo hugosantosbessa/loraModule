@@ -41,6 +41,9 @@
 #include "ns3/forwarder-helper.h"
 #include <algorithm>
 #include <ctime>
+#include <iostream>
+#include <fstream>
+#include <filesystem>
 
 using namespace ns3;
 using namespace lorawan;
@@ -236,6 +239,20 @@ Vector getShiftPosition (NodeContainer endDevices, int j, int base){
 }/* -----  end of function getRateSF  ----- */
 
 
+bool createDirectory(std::string path) {
+	int num = path.find_last_of("/");
+    path = path.substr(0, num+1);
+    if (!std::filesystem::exists(path)) {
+        std::filesystem::create_directories(path);
+		return true;
+	}
+	return false;
+}
+
+void OnReceivePacket(Ptr<const Packet> packet, uint32_t num) {
+	std::cout << "Receive Packet" << packet<< "\n";
+} 
+
 int main (int argc, char *argv[]){
 
 	string fileMetric="./scratch/result-STAs.dat";
@@ -250,6 +267,7 @@ int main (int argc, char *argv[]){
 	double packLoss=0, sent=0, received=0, avgDelay=0;
 	double angle=0, sAngle=M_PI; //, radius1=4200; //, radius2=4900;
 	double throughput=0, probSucc=0, probLoss=0;
+	bool verbose = false;
 
 	CommandLine cmd;
   	cmd.AddValue ("nSeed", "Number of seed to position", nSeed);
@@ -263,43 +281,51 @@ int main (int argc, char *argv[]){
   	cmd.AddValue ("file2", "files containing result information", fileData);
   	cmd.AddValue ("print", "Whether or not to print various informations", print);
   	cmd.AddValue ("trial", "set trial parameter", trial);
+	cmd.AddValue ("verbose", "verbose mode", verbose);
   	cmd.Parse (argc, argv);
 
 	endDevFile += to_string(trial) + "/endDevices" + to_string(nDevices) + ".dat";
 	gwFile += to_string(trial) + "/GWs" + to_string(nGateways) + ".dat";
-	
-  	// Set up logging
-  	//LogComponentEnable ("LorawanNetworkSimulatorMClass", LOG_LEVEL_ALL);
-  	//LogComponentEnable("LoraPacketTracker", LOG_LEVEL_ALL);
-  	//LogComponentEnable("LoraChannel", LOG_LEVEL_INFO);
-  	//LogComponentEnable("LoraPhy", LOG_LEVEL_ALL);
-  	//LogComponentEnable("EndDeviceLoraPhy", LOG_LEVEL_ALL);
-   	//LogComponentEnable("SimpleEndDeviceLoraPhy", LOG_LEVEL_ALL);
- 	//LogComponentEnable("GatewayLoraPhy", LOG_LEVEL_ALL);
-  	//LogComponentEnable("SimpleGatewayLoraPhy", LOG_LEVEL_ALL);
-  	//LogComponentEnable("LoraInterferenceHelper", LOG_LEVEL_ALL);
-  	//LogComponentEnable("LorawanMac", LOG_LEVEL_ALL);
-  	//LogComponentEnable("EndDeviceLorawanMac", LOG_LEVEL_ALL);
-	//LogComponentEnable("EndDeviceStatus", LOG_LEVEL_ALL);
-  	//LogComponentEnable("ClassAEndDeviceLorawanMac", LOG_LEVEL_ALL);
-  	//LogComponentEnable("GatewayLorawanMac", LOG_LEVEL_ALL);
-  	//LogComponentEnable("LogicalLoraChannelHelper", LOG_LEVEL_ALL);
-  	//LogComponentEnable("LogicalLoraChannel", LOG_LEVEL_ALL);
-  	//LogComponentEnable("LoraHelper", LOG_LEVEL_ALL);
-  	//LogComponentEnable("LoraPhyHelper", LOG_LEVEL_ALL);
-  	//LogComponentEnable("LorawanMacHelper", LOG_LEVEL_ALL);
-  	//LogComponentEnable("PeriodicSenderHelper", LOG_LEVEL_ALL);
-  	//LogComponentEnable("PeriodicSender", LOG_LEVEL_ALL);
-   	//LogComponentEnable("RandomSenderHelper", LOG_LEVEL_ALL);
-  	//LogComponentEnable("RandomSender", LOG_LEVEL_ALL);
-  	//LogComponentEnable("LorawanMacHeader", LOG_LEVEL_ALL);
-  	//LogComponentEnable("LoraFrameHeader", LOG_LEVEL_ALL);
-    //LogComponentEnable("NetworkScheduler", LOG_LEVEL_ALL);
-  	//LogComponentEnable("NetworkServer", LOG_LEVEL_ALL);
-  	//LogComponentEnable("NetworkStatus", LOG_LEVEL_ALL);
-  	//LogComponentEnable("NetworkController", LOG_LEVEL_ALL);
+	createDirectory(fileMetric);
+	createDirectory(fileData);
+	createDirectory(endDevFile);
+	createDirectory(gwFile);
 
-  	/***********
+
+  	// Set up logging
+  	if (verbose) {
+		// LogComponentEnable ("LorawanNetworkSimulatorMClass", LOG_LEVEL_ALL);
+		// LogComponentEnable("LoraPacketTracker", LOG_LEVEL_ALL);
+		LogComponentEnable("LoraChannel", LOG_LEVEL_DEBUG);
+		// LogComponentEnable("LoraChannel", LOG_PREFIX_TIME);
+		// LogComponentEnable("LoraPhy", LOG_LEVEL_ALL);
+		// LogComponentEnable("EndDeviceLoraPhy", LOG_LEVEL_ALL);
+		// LogComponentEnable("SimpleEndDeviceLoraPhy", LOG_LEVEL_ALL);
+		// LogComponentEnable("GatewayLoraPhy", LOG_LEVEL_ALL);
+		// LogComponentEnable("SimpleGatewayLoraPhy", LOG_LEVEL_ALL);
+		// LogComponentEnable("LoraInterferenceHelper", LOG_LEVEL_ALL);
+		// LogComponentEnable("LorawanMac", LOG_LEVEL_ALL);
+		// LogComponentEnable("EndDeviceLorawanMac", LOG_LEVEL_ALL);
+		// LogComponentEnable("EndDeviceStatus", LOG_LEVEL_ALL);
+		// LogComponentEnable("ClassAEndDeviceLorawanMac", LOG_LEVEL_ALL);
+		// LogComponentEnable("GatewayLorawanMac", LOG_LEVEL_ALL);
+		// LogComponentEnable("LogicalLoraChannelHelper", LOG_LEVEL_ALL);
+		// LogComponentEnable("LogicalLoraChannel", LOG_LEVEL_ALL);
+		// LogComponentEnable("LoraHelper", LOG_LEVEL_ALL);
+		// LogComponentEnable("LoraPhyHelper", LOG_LEVEL_ALL);
+		// LogComponentEnable("LorawanMacHelper", LOG_LEVEL_ALL);
+		// LogComponentEnable("PeriodicSenderHelper", LOG_LEVEL_ALL);
+		// LogComponentEnable("PeriodicSender", LOG_LEVEL_ALL);
+		// LogComponentEnable("RandomSenderHelper", LOG_LEVEL_ALL);
+		// LogComponentEnable("RandomSender", LOG_LEVEL_ALL);
+		// LogComponentEnable("LorawanMacHeader", LOG_LEVEL_ALL);
+		// LogComponentEnable("LoraFrameHeader", LOG_LEVEL_ALL);
+		// LogComponentEnable("NetworkScheduler", LOG_LEVEL_ALL);
+		// LogComponentEnable("NetworkServer", LOG_LEVEL_ALL);
+		// LogComponentEnable("NetworkStatus", LOG_LEVEL_ALL);
+		// LogComponentEnable("NetworkController", LOG_LEVEL_ALL);
+	}
+  	/***********	
    	*  Setup  *
    	***********/
 	ofstream myfile;
@@ -411,6 +437,10 @@ int main (int argc, char *argv[]){
 	  	}
     }
 
+	if(Config::ConnectWithoutContextFailSafe("/NodeList/*/DeviceList/0/$ns3::LoraNetDevice/Phy/$ns3::LoraPhy/ReceivedPacket", MakeCallback (&OnReceivePacket)))
+		std::cout << "Conect Trace Source LoraPhy/ReceivedPacket!\n"; 
+	else
+		std::cout << "Not Conect Trace Source :LoraPhy/ReceivedPacket!\n"; 
   	/*********************
    	*  Create Gateways  *
    	*********************/

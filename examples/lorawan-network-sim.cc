@@ -52,7 +52,7 @@ uint16_t appPeriodSeconds = 60;
 
 // Output control
 bool printBuildings = false;
-bool print = false;
+bool print = true;
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -366,7 +366,7 @@ int main (int argc, char *argv[]){
   	/**********************************************
    	*  Set up the end device's spreading factor  *
    	**********************************************/
-  	sfQuant = macHelper.SetSpreadingFactorsUp (endDevices, gateways, channel, rtxEnable);
+  	sfQuant = macHelper.SetSpreadingFactorsUp (endDevices, gateways, channel);
 	//sfQuant = macHelper.SetSpreadingFactorsEIB (endDevices, radius);
 	//sfQuant = macHelper.SetSpreadingFactorsEAB (endDevices, radius);
 	//sfQuant = macHelper.SetSpreadingFactorsProp (endDevices, radius);

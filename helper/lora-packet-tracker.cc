@@ -22,6 +22,9 @@
 #include "ns3/log.h"
 #include "ns3/simulator.h"
 #include "ns3/lorawan-mac-header.h"
+#include "ns3/lora-frame-header.h"
+#include "ns3/address.h"
+#include "ns3/lora-device-address.h"
 #include <iostream>
 #include <fstream>
 
@@ -375,6 +378,38 @@ LoraPacketTracker::PrintPhyPacketsPerGw (Time startTime, Time stopTime,
       std::to_string (received);
   }
 
+  std::string
+  LoraPacketTracker::CountMacPacketsGlobally (Time startTime, Time stopTime, 
+  std::map<LoraDeviceAddress, endAlarmFCtn> mapDevices)
+  {
+    NS_LOG_FUNCTION (this << startTime << stopTime);
+    double sent = 0;
+    double received = 0;
+    for (auto it = m_macPacketTracker.begin ();
+         it != m_macPacketTracker.end ();
+         ++it)
+      {
+        Ptr<Packet> packetCopy = (*it).first->Copy();
+        LorawanMacHeader mHdr;
+        LoraFrameHeader fHdr;
+        packetCopy->RemoveHeader(mHdr);
+        packetCopy->RemoveHeader(fHdr);
+        LoraDeviceAddress address = fHdr.GetAddress ();
+		    if(mapDevices.find(address) != mapDevices.end()) {
+          if ((*it).second.sendTime >= startTime && (*it).second.sendTime <= stopTime)
+            {
+              sent++;
+              if ((*it).second.receptionTimes.size ())
+                {
+                  received++;
+                }
+            }
+        }
+      }
+
+    return std::to_string (sent) + " " +
+      std::to_string (received);
+  }
 
   std::string
   LoraPacketTracker::CountMacPacketsGlobally (Time startTime, Time stopTime, uint8_t sf)
@@ -400,6 +435,41 @@ LoraPacketTracker::PrintPhyPacketsPerGw (Time startTime, Time stopTime,
               	}
           	}
       	}
+	}
+    return std::to_string (sent) + " " +
+      std::to_string (received);
+  }
+
+  std::string
+  LoraPacketTracker::CountMacPacketsGlobally (Time startTime, Time stopTime, uint8_t sf, std::map<LoraDeviceAddress, endAlarmFCtn> mapDevices)
+  {
+    NS_LOG_FUNCTION (this << startTime << stopTime);
+  	double sent = 0;
+  	double received = 0;
+ 
+    for (auto it = m_macPacketTracker.begin ();
+         it != m_macPacketTracker.end ();
+         ++it)
+    {
+		//std::cout << "sf: " << (unsigned)(*it).second.sf << " sf2: " << (unsigned)sf << std::endl;
+    if ((*it).second.sf == sf) {
+      Ptr<Packet> packetCopy = (*it).first->Copy();
+      LorawanMacHeader mHdr;
+      LoraFrameHeader fHdr;
+      packetCopy->RemoveHeader(mHdr);
+      packetCopy->RemoveHeader(fHdr);
+      LoraDeviceAddress address = fHdr.GetAddress ();
+      if(mapDevices.find(address) != mapDevices.end()) {
+        if ((*it).second.sendTime >= startTime && (*it).second.sendTime <= stopTime)
+          {
+            sent++;
+            if ((*it).second.receptionTimes.size ())
+              {
+                received++;
+              }
+          }          
+      }
+    }
 	}
     return std::to_string (sent) + " " +
       std::to_string (received);
@@ -483,24 +553,79 @@ LoraPacketTracker::PrintPhyPacketsPerGw (Time startTime, Time stopTime,
 
       		if ((*itMac).second.sendTime > startTime && (*itMac).second.sendTime < stopTime)
         	{
+            if ((*itMac).second.receptionTimes.find(i) != (*itMac).second.receptionTimes.end()){
           		packetsOutsideTransient++;
 
           		// Compute delays
           		/////////////////
-          		if ((*itMac).second.receptionTimes.find(gwId)->second == Time::Max () || (*itMac).second.receptionTimes.find(gwId)->second < (*itMac).second.sendTime )
+          		if ((*itMac).second.receptionTimes.find(i)->second == Time::Max () || (*itMac).second.receptionTimes.find(i)->second < (*itMac).second.sendTime )
             	{
               		NS_LOG_DEBUG ("Packet never received, ignoring it");
               		packetsOutsideTransient--;
            	 	}
           		else
             	{
-              		delaySum += (*itMac).second.receptionTimes.find(gwId)->second  - (*itMac).second.sendTime;
+              		delaySum += (*itMac).second.receptionTimes.find(i)->second  - (*itMac).second.sendTime;
             	}
-
+            }
         	}
     	}
 	}
-	//cout << "trans: " << packetsOutsideTransient << " d: " << delaySum.GetSeconds() << endl;
+	// std::cout << "trans: " << packetsOutsideTransient << " d: " << delaySum.GetSeconds() << std::endl;
+
+  	if (packetsOutsideTransient != 0)
+    {
+      avgDelay = (delaySum/packetsOutsideTransient).GetSeconds ();
+    }
+	
+	return(std::to_string(avgDelay));
+
+  }
+
+  std::string
+  LoraPacketTracker::CountMacPacketsGloballyDelay (Time startTime, Time stopTime, uint32_t gwId, uint32_t gwNum, std::map<LoraDeviceAddress, endAlarmFCtn> mapDevices)
+  {
+  	Time delaySum = Seconds (0);
+  	double avgDelay = 0;
+  	int packetsOutsideTransient = 0;
+
+    for (uint32_t i = gwId; i < (gwId+gwNum); i++)
+    {
+        for (auto itMac = m_macPacketTracker.begin (); itMac != m_macPacketTracker.end (); ++itMac)
+        {
+          NS_LOG_DEBUG ("Dealing with packet " << (*itMac).first);
+
+          Ptr<Packet> packetCopy = (*itMac).first->Copy();
+          LorawanMacHeader mHdr;
+          LoraFrameHeader fHdr;
+          packetCopy->RemoveHeader(mHdr);
+          packetCopy->RemoveHeader(fHdr);
+          LoraDeviceAddress address = fHdr.GetAddress ();
+          if(mapDevices.find(address) != mapDevices.end()) {
+            if ((*itMac).second.receptionTimes.find(i) != (*itMac).second.receptionTimes.end()){
+              if ((*itMac).second.sendTime > startTime && (*itMac).second.sendTime < stopTime)
+              {
+                  packetsOutsideTransient++;
+
+                  // Compute delays
+                  /////////////////
+                  if ((*itMac).second.receptionTimes.find(i)->second == Time::Max () || (*itMac).second.receptionTimes.find(i)->second < (*itMac).second.sendTime )
+                  {
+                      NS_LOG_DEBUG ("Packet never received, ignoring it");
+                      packetsOutsideTransient--;
+                  }
+                  else
+                  {
+                      delaySum += (*itMac).second.receptionTimes.find(i)->second  - (*itMac).second.sendTime;
+                  }
+
+               }
+            }
+          }
+        }
+    }
+	// std::cout << "trans: " << packetsOutsideTransient << " d: " << delaySum.GetSeconds() << std::endl;
+
 
   	if (packetsOutsideTransient != 0)
     {
@@ -526,31 +651,86 @@ LoraPacketTracker::PrintPhyPacketsPerGw (Time startTime, Time stopTime,
 			if ((*itMac).second.sf == sf){
       			if ((*itMac).second.sendTime > startTime && (*itMac).second.sendTime < stopTime)
         		{
+              if ((*itMac).second.receptionTimes.find(i) != (*itMac).second.receptionTimes.end()){
           			packetsOutsideTransient++;
 
           			// Compute delays
           			/////////////////
-          			if ((*itMac).second.receptionTimes.find(gwId)->second == Time::Max () || (*itMac).second.receptionTimes.find(gwId)->second < (*itMac).second.sendTime )
+          			if ((*itMac).second.receptionTimes.find(i)->second == Time::Max () || (*itMac).second.receptionTimes.find(i)->second < (*itMac).second.sendTime )
             		{
               			// NS_LOG_DEBUG ("Packet never received, ignoring it");
               			packetsOutsideTransient--;
            	 		}
           			else
             		{
-              			delaySum += (*itMac).second.receptionTimes.find(gwId)->second  - (*itMac).second.sendTime;
+              			delaySum += (*itMac).second.receptionTimes.find(i)->second  - (*itMac).second.sendTime;
             		}
-
+              }
         		}
 			}
     	}
 	}
-	//cout << "trans: " << packetsOutsideTransient << " d: " << delaySum.GetSeconds() << endl;
+	// std::cout << "trans: " << packetsOutsideTransient << " d: " << delaySum.GetSeconds() << std::endl;
 
   	if (packetsOutsideTransient != 0)
     {
       avgDelay = (delaySum/packetsOutsideTransient).GetSeconds ();
     }
 	
+	return(std::to_string(avgDelay));
+
+  }
+
+  std::string
+  LoraPacketTracker::CountMacPacketsGloballyDelay (Time startTime, Time stopTime, uint32_t gwId, uint32_t gwNum, uint8_t sf, std::map<LoraDeviceAddress, endAlarmFCtn> mapDevices)
+  {
+  	Time delaySum = Seconds (0);
+  	double avgDelay = 0;
+  	int packetsOutsideTransient = 0;
+
+	for (uint32_t i = gwId; i < (gwId+gwNum); i++)
+	{
+  		for (auto itMac = m_macPacketTracker.begin (); itMac != m_macPacketTracker.end (); ++itMac)
+    	{
+      	// NS_LOG_DEBUG ("Dealing with packet " << (*itMac).first);
+			if ((*itMac).second.sf == sf){
+          Ptr<Packet> packetCopy = (*itMac).first->Copy();
+          LorawanMacHeader mHdr;
+          LoraFrameHeader fHdr;
+          packetCopy->RemoveHeader(mHdr);
+          packetCopy->RemoveHeader(fHdr);
+          LoraDeviceAddress address = fHdr.GetAddress ();
+          if(mapDevices.find(address) != mapDevices.end()) {
+      			if ((*itMac).second.sendTime > startTime && (*itMac).second.sendTime < stopTime)
+        		{
+          			// Compute delays
+          			/////////////////
+                if ((*itMac).second.receptionTimes.find(i) != (*itMac).second.receptionTimes.end()){
+                  packetsOutsideTransient++;
+                  if ((*itMac).second.receptionTimes.find(i)->second == Time::Max () || (*itMac).second.receptionTimes.find(i)->second < (*itMac).second.sendTime )
+                  {
+                      // NS_LOG_DEBUG ("Packet never received, ignoring it");
+                      packetsOutsideTransient--;
+                  }
+                  else
+                  {
+                    // std::cout << "Tempo que o GW " << (*itMac).second.receptionTimes.find(i)->first << " recebeu: " << (*itMac).second.receptionTimes.find(gwId)->second << " Tempo que pacote foi enviado: " << (*itMac).second.sendTime << std::endl;
+                    delaySum += (*itMac).second.receptionTimes.find(i)->second  - (*itMac).second.sendTime;
+                  }
+                } 
+
+        		}
+          }
+			}
+    	}
+	}
+	  // std::cout << "trans: " << packetsOutsideTransient << " d: " << delaySum.GetSeconds() << std::endl;
+
+  	if (packetsOutsideTransient != 0)
+    {
+      avgDelay = (delaySum/packetsOutsideTransient).GetSeconds ();
+    }
+
 	return(std::to_string(avgDelay));
 
   }

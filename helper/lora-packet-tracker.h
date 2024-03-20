@@ -23,6 +23,8 @@
 
 #include "ns3/packet.h"
 #include "ns3/nstime.h"
+#include "ns3/address.h"
+#include "ns3/lora-device-address.h"
 
 #include <map>
 #include <string>
@@ -39,6 +41,11 @@ enum PhyPacketOutcome
   LOST_BECAUSE_TX,
   UNSET
 };
+
+typedef struct endAlarmFCtn {
+	uint16_t id; 
+	uint16_t FCtn=0;
+} endAlarmFCtn;
 
 struct PacketStatus
 {
@@ -150,8 +157,10 @@ public:
    * of packets that were received by at least one gateway.
    */
   std::string CountMacPacketsGlobally (Time startTime, Time stopTime);
+  std::string CountMacPacketsGlobally (Time startTime, Time stopTime, std::map<LoraDeviceAddress, endAlarmFCtn> mapDevices);
   /* by spreadinf factor */
   std::string CountMacPacketsGlobally (Time startTime, Time stopTime, uint8_t sf);
+  std::string CountMacPacketsGlobally (Time startTime, Time stopTime, uint8_t sf, std::map<LoraDeviceAddress, endAlarmFCtn> mapDevices);
 
   /**
    * Count packets to evaluate the global performance at MAC level of the whole
@@ -169,9 +178,13 @@ public:
 
   std::string CountMacPacketsGloballyDelay (Time startTime, Time stopTime, 
 											uint32_t gwId, uint32_t gwNum);
+  std::string CountMacPacketsGloballyDelay (Time startTime, Time stopTime, 
+											uint32_t gwId, uint32_t gwNum, std::map<LoraDeviceAddress, endAlarmFCtn> mapDevices);
 
   std::string CountMacPacketsGloballyDelay (Time startTime, Time stopTime, 
 											uint32_t gwId, uint32_t gwNum, uint8_t sf);
+  std::string CountMacPacketsGloballyDelay (Time startTime, Time stopTime, 
+											uint32_t gwId, uint32_t gwNum, uint8_t sf, std::map<LoraDeviceAddress, endAlarmFCtn> mapDevices);
 
 private:
   PhyPacketData m_packetTracker;
